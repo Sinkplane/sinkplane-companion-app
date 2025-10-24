@@ -9,7 +9,16 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSBonjourServices": [
+          "sinkplane-tv._tcp",
+          "sinkplane-tv._tcp"
+        ],
+        "NSLocalNetworkUsageDescription": "Allow sinkplane companion app to discover tv apps on the local network."
+      },
+      "bundleIdentifier": "com.cpawl89.sinkplanecompanion"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +28,18 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+        "android.permission.INTERNET"
+      ],
+      "package": "com.cpawl89.sinkplanecompanion"
     },
     "web": {
       "output": "static",
@@ -43,6 +63,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "packagerOpts": {
+      "port": 8083
     }
   }
 }

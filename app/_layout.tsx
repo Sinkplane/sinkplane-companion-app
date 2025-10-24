@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+// eslint-disable-next-line camelcase
 export const unstable_settings = {
   anchor: '(tabs)',
 };
