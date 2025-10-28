@@ -13,10 +13,27 @@ export const unstable_settings = {
 };
 
 function RootLayoutContent() {
-  const colorScheme = useColorScheme();
   const { token } = useSession();
   const signedIn = !!token;
 
+  return (
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={!signedIn}>
+          <Stack.Screen name="sign-in" />
+        </Stack.Protected>
+        <Stack.Protected guard={signedIn}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        </Stack.Protected>
+      </Stack>
+      <StatusBar style="auto" />
+    </>
+  );
+}
+
+export default function RootLayout() {
+  const colorScheme = useColorScheme();
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -25,29 +42,13 @@ function RootLayoutContent() {
       },
     },
   });
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={!signedIn}>
-            <Stack.Screen name="sign-in" />
-          </Stack.Protected>
-          <Stack.Protected guard={signedIn}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          </Stack.Protected>
-        </Stack>
-        <StatusBar style="auto" />
+        <SessionProvider>
+          <RootLayoutContent />
+        </SessionProvider>
       </ThemeProvider>
     </QueryClientProvider>
-  );
-}
-
-export default function RootLayout() {
-  return (
-    <SessionProvider>
-      <RootLayoutContent />
-    </SessionProvider>
   );
 }

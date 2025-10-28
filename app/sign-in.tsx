@@ -6,8 +6,8 @@ import { useSession } from '@/hooks/authentication/auth.context';
 import { useCaptchaInfo } from '@/hooks/authentication/useCaptchaInfo';
 import { useLogin } from '@/hooks/authentication/useLogin';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -18,6 +18,14 @@ export default function SignInScreen() {
   const colorScheme = useColorScheme();
   const { mutate: login, isPending, error: loginError } = useLogin();
   const { data: captchaInfo } = useCaptchaInfo();
+
+  const handleAuthError = () => {
+    console.error('error');
+    // Reset captcha on error
+    turnstileRef.current?.reset();
+    setCaptchaToken(null);
+    Alert.alert('Error signing in. Please try again');
+  };
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -33,35 +41,24 @@ export default function SignInScreen() {
       { username: email, password, captchaToken: captchaToken || undefined },
       {
         onSuccess: response => {
-          if (response.success && response.data) {
-            // Handle 2FA if needed
-            if (response.data.needs2FA) {
-              // TODO: Navigate to 2FA screen or handle 2FA flow
-              return;
-            }
-
-            // Sign in successful
-            if (response.data.user) {
-              signIn({
-                token: '', // Token is handled via cookies
-                user: response.data.user,
-                subscriptions: [],
-              });
-            }
+          if (!response.success || !response.data || !response.data?.user || !response.data?.authToken) {
+            return handleAuthError();
           }
+          if (response.data.needs2FA) {
+            // TODO: Navigate to 2FA screen or handle 2FA flow
+            console.info(response);
+          }
+
+          // Sign in successful
+          signIn({
+            token: response.data.authToken, // Token is handled via cookies
+            user: response.data.user,
+          });
         },
-        onError: () => {
-          // Reset captcha on error
-          turnstileRef.current?.reset();
-          setCaptchaToken(null);
-        },
+        onError: () => handleAuthError(),
       },
     );
   };
-
-  useEffect(() => {
-    if (captchaInfo) console.info(captchaInfo.data);
-  }, [captchaInfo]);
 
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -80,7 +77,7 @@ export default function SignInScreen() {
           <View style={{ gap: 8 }}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>Email</Text>
             <TextInput
-              placeholder="you@example.com"
+              placeholder="youremail@floatplane.com"
               value={email}
               onChangeText={setEmail}
               editable={!isPending}

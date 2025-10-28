@@ -67,6 +67,12 @@
     },
     "packagerOpts": {
       "port": 8083
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cf27b0cb-607e-4c41-83ed-16c1880c0d2f"
+      }
     }
   }
 }
