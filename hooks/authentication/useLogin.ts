@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { Platform } from 'react-native';
 import { API_BASE_URL, API_ENDPOINTS } from '@/constants/api';
+import { User } from '@/types/user.interface';
 
 export interface LoginRequest {
   username: string;
@@ -10,11 +11,7 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   needs2FA: boolean;
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-  };
+  user?: User;
   message?: string;
 }
 

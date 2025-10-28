@@ -1,10 +1,15 @@
+import { API_BASE_URL, API_ENDPOINTS } from '@/constants/api';
 import { useQuery } from '@tanstack/react-query';
 import { Platform } from 'react-native';
-import { API_BASE_URL, API_ENDPOINTS } from '@/constants/api';
+
+interface CaptchaVariant {
+  variants: Record<string, { siteKey: string }>;
+}
 
 export interface CaptchaInfo {
-  siteKey: string;
-  enabled: boolean;
+  turnstile: CaptchaVariant;
+  v2: CaptchaVariant;
+  v3: CaptchaVariant;
 }
 
 interface ApiResponse<T> {
