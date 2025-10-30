@@ -73,6 +73,16 @@
       "eas": {
         "projectId": "cf27b0cb-607e-4c41-83ed-16c1880c0d2f"
       }
+    },
+    "env": {
+      "development": {
+        "EXPO_PUBLIC_TV_DOMAIN": "192.168.1.148",
+        "EXPO_PUBLIC_TV_PORT": "9999"
+      },
+      "production": {
+        "EXPO_PUBLIC_TV_DOMAIN": "localhost",
+        "EXPO_PUBLIC_TV_PORT": "9999"
+      }
     }
   }
 }

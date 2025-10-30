@@ -10,7 +10,17 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Configure local development environment
+
+   For simulator testing with the Apple TV app, run:
+
+   ```bash
+   npm run setup-dev-env
+   ```
+
+   This script automatically updates the `.env` file with your machine's local IP address. This is required because the simulators need to communicate via your Mac's network IP rather than localhost. The script detects your IP and updates `EXPO_PUBLIC_TV_DOMAIN` accordingly.
+
+3. Start the app
 
    ```bash
    npx expo start

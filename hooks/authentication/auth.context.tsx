@@ -3,8 +3,8 @@ import { createContext, PropsWithChildren, use, useEffect, useState } from 'reac
 import { Subscription } from '@/types/subscriptions.interface';
 import { User } from '@/types/user.interface';
 import { useStorageState } from '../storage/useStorageState';
-import { useGetSubscriptions } from './useGetSubscription';
 import { useGetProfile } from './useGetProfile';
+import { useGetSubscriptions } from './useGetSubscription';
 
 interface SignInParams {
   token: string;
@@ -47,29 +47,42 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const { refetch: refetchProfile } = useGetProfile(token ?? undefined);
 
   useEffect(() => {
-    if (token && !tokenLoading && !user && !subscriptions) {
+    if (token && !tokenLoading) {
       const fetchData = async () => {
-        // Fetch profile
-        const { data: profileData } = await refetchProfile();
-        if (profileData?.user) {
-          setUser(profileData.user);
-        }
+        try {
+          // Fetch profile
+          const profileResult = await refetchProfile();
+          if (profileResult.data?.selfUser) {
+            setUser(profileResult.data.selfUser);
+          } else {
+            console.error('[Auth] No user data in profile result');
+          }
 
-        // Fetch subscriptions
-        const { data: subscriptionsData } = await refetchSubscriptions();
-        if (subscriptionsData) {
-          setSubscriptions(subscriptionsData);
-          if (subscriptionsData.length) setSubscription(subscriptionsData[0]);
+          // Fetch subscriptions
+          const subscriptionsResult = await refetchSubscriptions();
+          if (subscriptionsResult.data) {
+            setSubscriptions(subscriptionsResult.data);
+            if (subscriptionsResult.data.length) setSubscription(subscriptionsResult.data[0]);
+          } else {
+            console.error('[Auth] No subscriptions data in result');
+          }
+        } catch (error) {
+          console.error('[Auth] Error fetching user data:', error);
+        } finally {
+          setIsLoading(false);
         }
-
-        setIsLoading(false);
       };
 
       fetchData();
     } else if (!token && !tokenLoading) {
+      setUser(undefined);
+      setSubscriptions(undefined);
+      setSubscription(undefined);
       setIsLoading(false);
+    } else {
+      console.info('[Auth] Waiting for token to load...');
     }
-  }, [token, user, subscriptions, tokenLoading, refetchProfile, refetchSubscriptions]);
+  }, [token, tokenLoading, refetchProfile, refetchSubscriptions]);
 
   const signIn = async ({ token: t, user: u }: SignInParams) => {
     // Perform sign-in logic here

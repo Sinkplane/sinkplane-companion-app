@@ -23,6 +23,110 @@ export function useCompanionClient() {
   const [receivedMessages, setReceivedMessages] = useState<TVMessage[]>([]);
   const zeroconfRef = useRef<Zeroconf | null>(null);
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const retryIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastConnectionAttemptRef = useRef<number>(0);
+
+  // Connect to a TV
+  const connectToTV = useCallback(
+    (tv: TVDevice) => {
+      if (socket) {
+        socket.destroy();
+      }
+
+      console.info(`[TCP] Attempting to connect to ${tv.host}:${tv.port}`);
+
+      const client = TcpSocket.createConnection(
+        {
+          port: tv.port,
+          host: tv.host,
+        },
+        () => {
+          console.info(`[TCP] Successfully connected to TV: ${tv.name}`);
+          console.info('[TCP] Setting socket state and heartbeat...');
+          setIsConnected(true);
+          setConnectedTV(tv);
+
+          // Start heartbeat
+          if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current);
+          }
+          heartbeatIntervalRef.current = setInterval(() => {
+            sendMessage({
+              type: 'heartbeat',
+              payload: { status: 'alive' },
+            });
+          }, 30000); // Every 30 seconds
+        },
+      );
+
+      client.on('data', data => {
+        try {
+          console.info('[TCP] Raw data received:', data.toString());
+          const message: TVMessage = JSON.parse(data.toString());
+          console.info('[TCP] Parsed message:', message);
+          setReceivedMessages(prev => [...prev, message]);
+        } catch (error) {
+          console.error('[TCP] Error parsing message:', error, 'Raw data:', data.toString());
+        }
+      });
+
+      client.on('error', error => {
+        console.error('[TCP] Connection error:', error);
+        setIsConnected(false);
+        // Clean up the failed socket
+        if (socket === client) {
+          setSocket(null);
+        }
+      });
+
+      client.on('close', () => {
+        console.info('[TCP] Connection closed by remote or local');
+        setIsConnected(false);
+        setConnectedTV(null);
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+          heartbeatIntervalRef.current = null;
+        }
+      });
+
+      client.on('end', () => {
+        console.info('[TCP] Connection ended');
+      });
+
+      setSocket(client);
+    },
+    [socket],
+  );
+
+  // Auto-connect to TV at configured domain
+  const autoConnect = useCallback(
+    (host: string, port: number, retryInterval: number = 30000) => {
+      if (isConnected) {
+        return;
+      }
+
+      console.info(`[AutoConnect] Attempting to connect to TV at ${host}:${port}`);
+      const now = Date.now();
+      if (now - lastConnectionAttemptRef.current < retryInterval) {
+        return;
+      }
+
+      lastConnectionAttemptRef.current = now;
+      const manualTV: TVDevice = {
+        id: `auto-${host}-${port}`,
+        name: 'Apple TV',
+        platform: 'tvos',
+        host,
+        port,
+        addresses: [host],
+        lastSeen: new Date(),
+        txt: {},
+      };
+
+      connectToTV(manualTV);
+    },
+    [isConnected, connectToTV],
+  );
 
   // Start discovering TV services
   const startDiscovery = useCallback(() => {
@@ -96,81 +200,15 @@ export function useCompanionClient() {
     }
   }, []);
 
-  // Connect to a TV
-  const connectToTV = useCallback(
-    (tv: TVDevice) => {
-      if (socket) {
-        socket.destroy();
-      }
-
-      console.info(`[TCP] Attempting to connect to ${tv.host}:${tv.port}`);
-
-      const client = TcpSocket.createConnection(
-        {
-          port: tv.port,
-          host: tv.host,
-        },
-        () => {
-          console.info(`[TCP] Successfully connected to TV: ${tv.name}`);
-          setIsConnected(true);
-          setConnectedTV(tv);
-          setConnectedTV(tv);
-
-          // Start heartbeat
-          if (heartbeatIntervalRef.current) {
-            clearInterval(heartbeatIntervalRef.current);
-          }
-          heartbeatIntervalRef.current = setInterval(() => {
-            sendMessage({
-              type: 'heartbeat',
-              payload: { status: 'alive' },
-            });
-          }, 30000); // Every 30 seconds
-        },
-      );
-
-      client.on('data', data => {
-        try {
-          const message: TVMessage = JSON.parse(data.toString());
-          console.info('Received from TV:', message);
-          setReceivedMessages(prev => [...prev, message]);
-        } catch (error) {
-          console.error('Error parsing message:', error);
-        }
-      });
-
-      client.on('error', error => {
-        console.error('[TCP] Connection error:', error);
-        console.error('[TCP] Failed to connect to:', tv.host, ':', tv.port);
-        setIsConnected(false);
-        // Clean up the failed socket
-        if (socket === client) {
-          setSocket(null);
-        }
-      });
-
-      client.on('close', () => {
-        console.info('Connection closed');
-        setIsConnected(false);
-        setConnectedTV(null);
-        if (heartbeatIntervalRef.current) {
-          clearInterval(heartbeatIntervalRef.current);
-          heartbeatIntervalRef.current = null;
-        }
-      });
-
-      setSocket(client);
-    },
-    [socket],
-  );
-
   // Disconnect from TV
   const disconnect = useCallback(() => {
+    console.info('[TCP] Disconnect called');
     if (heartbeatIntervalRef.current) {
       clearInterval(heartbeatIntervalRef.current);
       heartbeatIntervalRef.current = null;
     }
     if (socket) {
+      console.info('[TCP] Destroying socket');
       socket.destroy();
       setSocket(null);
     }
@@ -214,14 +252,33 @@ export function useCompanionClient() {
     [sendMessage],
   );
 
-  // Start discovery on mount
+  // Start discovery or auto-connect on mount
   useEffect(() => {
-    startDiscovery();
+    const connectionMode = process.env.EXPO_PUBLIC_CONNECTION_MODE || 'discovery';
+    const tvDomain = process.env.EXPO_PUBLIC_TV_DOMAIN || '192.168.1.148';
+    const tvPort = Number(process.env.EXPO_PUBLIC_TV_PORT || 9999);
+    const retryInterval = Number(process.env.EXPO_PUBLIC_RETRY_INTERVAL || 30000);
+
+    if (connectionMode === 'autoconnect') {
+      // Auto-connect mode: try to connect immediately and retry at interval
+      autoConnect(tvDomain, tvPort, retryInterval);
+
+      retryIntervalRef.current = setInterval(() => {
+        autoConnect(tvDomain, tvPort, retryInterval);
+      }, retryInterval);
+    } else {
+      // Discovery mode: scan for TVs
+      startDiscovery();
+    }
+
     return () => {
+      if (retryIntervalRef.current) {
+        clearInterval(retryIntervalRef.current);
+      }
       stopDiscovery();
       disconnect();
     };
-  }, [startDiscovery, stopDiscovery, disconnect]);
+  }, []);
 
   // Manual connect function for development (use localhost for simulator)
   const connectManually = useCallback(
