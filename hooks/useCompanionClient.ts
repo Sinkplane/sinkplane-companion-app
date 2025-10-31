@@ -65,6 +65,32 @@ export function useCompanionClient() {
           const message: TVMessage = JSON.parse(data.toString());
           console.info('[TCP] Parsed message:', message);
           setReceivedMessages(prev => [...prev, message]);
+
+          // Handle discover message to update TV device info
+          if (message.type === 'discover' && message.payload) {
+            const { name: deviceName, isLoggedIn } = message.payload;
+            setConnectedTV(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                deviceName: deviceName || prev.name,
+                isLoggedIn,
+              };
+            });
+            // Also update in discovered TVs map
+            setDiscoveredTVs(prev => {
+              const newMap = new Map(prev);
+              const existingTV = newMap.get(tv.id);
+              if (existingTV) {
+                newMap.set(tv.id, {
+                  ...existingTV,
+                  deviceName: deviceName || existingTV.name,
+                  isLoggedIn,
+                });
+              }
+              return newMap;
+            });
+          }
         } catch (error) {
           console.error('[TCP] Error parsing message:', error, 'Raw data:', data.toString());
         }

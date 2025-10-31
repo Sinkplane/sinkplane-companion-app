@@ -3,8 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { API_BASE_URL } from '@/constants/api';
 import { IStatusResponse } from '@/types/status.interface';
 
+const platform = 'android';
+const version = '0.5.8';
+
 const fetchProfile = async (token: string): Promise<IStatusResponse> => {
-  const response = await fetch(`${API_BASE_URL}/api/v3/status?platform=web&version=4.4.8`, {
+  const response = await fetch(`${API_BASE_URL}/api/v3/status?platform=${platform}&version=${version}`, {
     method: 'GET',
     credentials: 'include',
     headers: {
@@ -18,7 +21,9 @@ const fetchProfile = async (token: string): Promise<IStatusResponse> => {
     throw new Error(`Failed to fetch profile: ${response.status} - ${errorText}`);
   }
 
-  return response.json();
+  const data = response.json();
+  console.info('Fetched profile data:', data);
+  return data;
 };
 
 export const useGetProfile = (token?: string) =>

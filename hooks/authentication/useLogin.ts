@@ -1,4 +1,5 @@
 import { API_BASE_URL, API_ENDPOINTS } from '@/constants/api';
+import { ApiResponse } from '@/types/api-response.interface';
 import { User } from '@/types/user.interface';
 import CookieManager from '@react-native-cookies/cookies';
 import { useMutation } from '@tanstack/react-query';
@@ -15,13 +16,6 @@ export interface LoginResponse {
   user?: User;
   message?: string;
   authToken?: string;
-}
-
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  statusCode: number;
 }
 
 async function login(request: LoginRequest): Promise<ApiResponse<LoginResponse>> {

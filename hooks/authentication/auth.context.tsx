@@ -52,6 +52,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         try {
           // Fetch profile
           const profileResult = await refetchProfile();
+          console.info('[Auth] Fetched profile result:', profileResult);
           if (profileResult.data?.selfUser) {
             setUser(profileResult.data.selfUser);
           } else {

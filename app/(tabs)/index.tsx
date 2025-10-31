@@ -1,24 +1,48 @@
-import { Pressable, ScrollView, StyleSheet, View, StatusBar, useColorScheme } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { Alert, Pressable, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useCompanionClient } from '@/hooks/useCompanionClient';
+import { useCompanionClient } from '@/hooks/companion-client.context';
+import { TVDevice } from '@/types/tv-device.interface';
 
 export default function HomeScreen() {
-  const { discoveredTVs, connectedTV, isConnected } = useCompanionClient();
-  const colorScheme = useColorScheme();
+  const router = useRouter();
+  const { discoveredTVs, connectedDevices, sendLogin } = useCompanionClient();
 
   const connectionMode = process.env.EXPO_PUBLIC_CONNECTION_MODE || 'discovery';
-  const tvList =
-    connectionMode === 'autoconnect' && connectedTV
-      ? [connectedTV]
-      : discoveredTVs;
+  const tvList = connectionMode === 'autoconnect' && connectedDevices.length > 0 ? connectedDevices.map(cd => cd.device) : discoveredTVs;
+
+  const isDeviceConnected = (deviceId: string) => connectedDevices.some(cd => cd.device.id === deviceId && cd.isConnected);
+
+  const handleTVPress = (tv: TVDevice) => () => {
+    const connected = isDeviceConnected(tv.id);
+    if (!connected) return;
+    if (tv.isLoggedIn) return router.push('/videos');
+    Alert.alert(
+      'Login to TV',
+      'By logging in to this TV, other users may have access to your watch history. Do not proceed on an unsecure network.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Continue',
+          onPress: () => {
+            sendLogin(tv.id);
+            router.push('/videos');
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <ThemedView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1F1F1F" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <ThemedText style={styles.headerTitle}>TVs</ThemedText>
@@ -33,25 +57,20 @@ export default function HomeScreen() {
           </View>
         ) : (
           tvList.map((tv, index) => (
-            <Pressable key={tv.id} onPress={() => {}} style={styles.listItemPressable}>
-              <View
-                style={[
-                  styles.listItem,
-                  index !== tvList.length - 1 && styles.listItemBorder,
-                ]}
-              >
+            <Pressable key={tv.id} onPress={handleTVPress(tv)} style={styles.listItemPressable}>
+              <View style={[styles.listItem, index !== tvList.length - 1 && styles.listItemBorder]}>
                 {/* Icon */}
                 <View style={styles.iconContainer}>
                   <MaterialCommunityIcons
-                    name={isConnected && connectedTV?.id === tv.id ? 'wifi' : 'wifi-off'}
+                    name={isDeviceConnected(tv.id) ? 'wifi' : 'wifi-off'}
                     size={32}
-                    color={isConnected && connectedTV?.id === tv.id ? '#4CAF50' : '#999'}
+                    color={isDeviceConnected(tv.id) ? '#4CAF50' : '#999'}
                   />
                 </View>
 
                 {/* Content */}
                 <View style={styles.contentContainer}>
-                  <ThemedText style={styles.tvName}>{tv.name}</ThemedText>
+                  <ThemedText style={styles.tvName}>{tv.deviceName || tv.name}</ThemedText>
                   <ThemedText style={styles.tvSubtitle}>
                     {tv.host}:{tv.port} • {tv.platform}
                   </ThemedText>
@@ -59,9 +78,9 @@ export default function HomeScreen() {
 
                 {/* Status Badge */}
                 <View style={styles.trailingContainer}>
-                  {isConnected && connectedTV?.id === tv.id && (
-                    <View style={styles.connectedBadge}>
-                      <ThemedText style={styles.connectedText}>Connected</ThemedText>
+                  {isDeviceConnected(tv.id) && (
+                    <View style={[styles.connectedBadge, tv.isLoggedIn ? styles.connectedBadgeSuccess : styles.connectedBadgeWarning]}>
+                      <ThemedText style={styles.connectedText}>{tv.isLoggedIn ? 'Connected' : 'Disconnected'}</ThemedText>
                     </View>
                   )}
                 </View>
@@ -146,10 +165,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   connectedBadge: {
-    backgroundColor: '#4CAF50',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+  },
+  connectedBadgeSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  connectedBadgeWarning: {
+    backgroundColor: '#FF9800',
   },
   connectedText: {
     fontSize: 12,
